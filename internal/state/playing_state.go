@@ -6,29 +6,38 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/typetrait/pingo/internal/event"
 	"github.com/typetrait/pingo/internal/game"
 	"github.com/typetrait/pingo/internal/math"
 )
 
 const (
-	BallSize = 8
+	BallSize     = 8
+	PaddleMargin = 55
 )
 
 type PlayingState struct {
+	eventBus  event.EventBus
+	Rules     game.Rules
+	Bounds    game.Bounds
 	PlayerOne *game.Player
 	PlayerTwo *game.Player
 	Ball      *game.Ball
 
-	score map[*game.Player]int32
+	score map[*game.Player]int64
 }
 
-func NewPlayingState(playerOne, playerTwo *game.Player, ball *game.Ball) *PlayingState {
+func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Bounds, playerOne, playerTwo *game.Player, ball *game.Ball) *PlayingState {
 	return &PlayingState{
+		eventBus:  eventBus,
+		Rules:     rules,
+		Bounds:    bounds,
 		PlayerOne: playerOne,
 		PlayerTwo: playerTwo,
 		Ball:      ball,
-		score:     map[*game.Player]int32{},
+		score:     map[*game.Player]int64{},
 	}
 }
 
@@ -84,6 +93,11 @@ func (ps *PlayingState) Draw(screen *ebiten.Image) {
 }
 
 func (ps *PlayingState) Update(dt float32) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		ps.eventBus.Publish(&event.ExitGameEvent{})
+		return
+	}
+
 	// Player One Input
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
 		ps.PlayerOne.Paddle.Position.Y += -7.2
@@ -122,16 +136,15 @@ func (ps *PlayingState) Update(dt float32) {
 		}
 	}
 
-	// TODO: USE RESOLUTION/SCREEN SIZE
 	// Bounds Collision
-	if ps.Ball.Position.Y+BallSize >= 600 || ps.Ball.Position.Y <= 0 {
+	if ps.Ball.Position.Y+BallSize >= float32(ps.Bounds.Height) || ps.Ball.Position.Y <= 0 {
 		ps.Ball.Velocity.Y = -ps.Ball.Velocity.Y
 	}
 
 	if ps.Ball.Position.X+BallSize <= 0 {
 		ps.onScore(ps.PlayerTwo)
 		return
-	} else if ps.Ball.Position.X >= 800 {
+	} else if ps.Ball.Position.X >= float32(ps.Bounds.Width) {
 		ps.onScore(ps.PlayerOne)
 		return
 	}
@@ -139,10 +152,27 @@ func (ps *PlayingState) Update(dt float32) {
 
 func (ps *PlayingState) onScore(player *game.Player) {
 	ps.score[player]++
+
+	if ps.score[player] >= ps.Rules.WinningScore {
+		ps.score[ps.PlayerOne] = 0
+		ps.score[ps.PlayerTwo] = 0
+		ps.reset()
+	}
+
 	ps.reset()
 }
 
 func (ps *PlayingState) reset() {
-	ps.Ball.Position = math.NewVector2f(400, 300)
+	ps.Ball.Position = math.NewVector2f(float32(ps.Bounds.Width)/2, float32(ps.Bounds.Height)/2)
 	ps.Ball.Velocity = math.NewVector2f(-1*2.25, 1*2.25)
+
+	ps.PlayerOne.Paddle.Position = math.NewVector2f(
+		PaddleMargin,
+		(float32(ps.Bounds.Height)/2)-(ps.PlayerOne.Paddle.Size.Y/2),
+	)
+
+	ps.PlayerTwo.Paddle.Position = math.NewVector2f(
+		float32(ps.Bounds.Width)-PaddleMargin-ps.PlayerTwo.Paddle.Size.X,
+		(float32(ps.Bounds.Height)/2)-(ps.PlayerTwo.Paddle.Size.Y/2),
+	)
 }

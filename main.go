@@ -25,6 +25,11 @@ func NewGame(width, height int32) *Game {
 
 func (g *Game) Run() {
 	bus := event.NewEventBussin()
+	bus.Register(event.EventExitGame, func(event event.Event) {
+		g.state = state.NewMenuState(bus)
+		g.state.Start()
+	})
+
 	bus.Register(event.EventStartGame, func(event event.Event) {
 		paddleWidth := float32(g.width) * 0.01
 		paddleHeight := float32(g.height) * 0.25
@@ -54,7 +59,18 @@ func (g *Game) Run() {
 			),
 		)
 
+		rules := game.NewRules(5)
+
+		w, h := g.Layout(800, 600)
+		bounds := game.NewBounds(
+			int32(w),
+			int32(h),
+		)
+
 		ps := state.NewPlayingState(
+			bus,
+			rules,
+			bounds,
 			playerOne,
 			playerTwo,
 			ball,
@@ -80,7 +96,6 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	//ebitenutil.DebugPrint(screen, "Hello, World!")
 	g.state.Draw(screen)
 }
 

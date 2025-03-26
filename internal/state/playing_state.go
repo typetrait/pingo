@@ -19,7 +19,7 @@ const (
 	BallSize     = 8
 	PaddleMargin = 55
 
-	BallSpeed   = 4.5
+	BallSpeed   = 6.5
 	PaddleSpeed = 7.2
 )
 
@@ -64,7 +64,6 @@ func (ps *PlayingState) Start() {
 	ps.reset()
 
 	ps.eventBus.Register(event.EventGameOver, func(ev event.Event) {
-		// g.state = NewGameOverState(ps.eventBus, ps)
 		gameOverEvent := ev.(*GameOverEvent)
 		ps.eventBus.Publish(
 			NewSetGameStateEvent(
@@ -215,14 +214,13 @@ func (ps *PlayingState) onScore(player *game.Player) {
 		ps.onGameOver(player)
 		return
 	}
-	ps.reset()
+	ps.resetBall()
 }
 
 func (ps *PlayingState) onGameOver(winner *game.Player) {
 	// for k, _ := range ps.score {
 	// 	ps.score[k] = 0
 	// }
-	// ps.reset()
 
 	ps.eventBus.Publish(
 		NewSetGameStateEvent(
@@ -232,9 +230,16 @@ func (ps *PlayingState) onGameOver(winner *game.Player) {
 }
 
 func (ps *PlayingState) reset() {
-	ps.Ball.Position = math.NewVector2f(float32(ps.Bounds.Width)/2, float32(ps.Bounds.Height)/2)
-	ps.Ball.Velocity = math.Vector2fMultiplyByScalar(ps.randomVelocity(), BallSpeed)
+	ps.resetBall()
+	ps.resetPaddles()
+}
 
+func (ps *PlayingState) resetBall() {
+	ps.Ball.Position = math.NewVector2f(float32(ps.Bounds.Width)/2, float32(ps.Bounds.Height)/2)
+	ps.Ball.Velocity = math.Vector2fMultiplyByScalar(ps.randomBallVelocity(), BallSpeed)
+}
+
+func (ps *PlayingState) resetPaddles() {
 	ps.PlayerOne.Paddle.Position = math.NewVector2f(
 		PaddleMargin,
 		(float32(ps.Bounds.Height)/2)-(ps.PlayerOne.Paddle.Size.Y/2),
@@ -246,10 +251,19 @@ func (ps *PlayingState) reset() {
 	)
 }
 
-func (ps *PlayingState) randomVelocity() math.Vector2f {
-	angle := rand.Float64() * 2 * math2.Pi
+func (ps *PlayingState) randomBallVelocity() math.Vector2f {
+	var angle float64
+	if rand.IntN(2) == 0 {
+		angle = rand.Float64()*math2.Pi/2 - math2.Pi/4
+	} else {
+		angle = rand.Float64()*math2.Pi/2 + 3*math2.Pi/4
+	}
+
+	x := math2.Cos(angle)
+	y := math2.Sin(angle)
+
 	return math.NewVector2f(
-		float32(math2.Cos(angle)),
-		float32(math2.Sin(angle)),
+		float32(x),
+		float32(y),
 	)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/typetrait/pingo/internal/event"
 	"github.com/typetrait/pingo/internal/game"
@@ -72,5 +73,8 @@ func (gos *GameOverState) Draw(screen *ebiten.Image) {
 }
 
 func (gos *GameOverState) Update(dt float32) {
-
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		gos.eventBus.Publish(&event.StartGameEvent{})
+		return
+	}
 }

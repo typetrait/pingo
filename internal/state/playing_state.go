@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 	"image/color"
+	math2 "math"
+	"math/rand/v2"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -16,7 +18,24 @@ import (
 const (
 	BallSize     = 8
 	PaddleMargin = 55
+
+	BallSpeed   = 4.5
+	PaddleSpeed = 7.2
 )
+
+type SetGameStateEvent struct {
+	State GameState
+}
+
+func NewSetGameStateEvent(state GameState) *SetGameStateEvent {
+	return &SetGameStateEvent{
+		State: state,
+	}
+}
+
+func (e *SetGameStateEvent) Type() event.Type {
+	return event.EventSetGameState
+}
 
 type PlayingState struct {
 	eventBus  event.EventBus
@@ -44,6 +63,16 @@ func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Boun
 func (ps *PlayingState) Start() {
 	ps.reset()
 
+	ps.eventBus.Register(event.EventGameOver, func(ev event.Event) {
+		// g.state = NewGameOverState(ps.eventBus, ps)
+		gameOverEvent := ev.(*GameOverEvent)
+		ps.eventBus.Publish(
+			NewSetGameStateEvent(
+				NewGameOverState(ps.eventBus, ps, gameOverEvent.winner),
+			),
+		)
+	})
+
 	ps.score[ps.PlayerOne] = 0
 	ps.score[ps.PlayerTwo] = 0
 }
@@ -52,8 +81,10 @@ func (ps *PlayingState) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(
 		screen,
 		fmt.Sprintf(
-			"Player 1: %d pts. | Player 2: %d pts.",
+			"%s: %d pts. | %s: %d pts.",
+			ps.PlayerOne.Name,
 			ps.score[ps.PlayerOne],
+			ps.PlayerTwo.Name,
 			ps.score[ps.PlayerTwo],
 		),
 	)
@@ -93,6 +124,16 @@ func (ps *PlayingState) Draw(screen *ebiten.Image) {
 }
 
 func (ps *PlayingState) Update(dt float32) {
+	// Instant Game Over - for testing
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		ps.eventBus.Publish(
+			NewGameOverEvent(
+				ps.PlayerOne,
+			),
+		)
+		return
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		ps.eventBus.Publish(&event.ExitGameEvent{})
 		return
@@ -100,25 +141,25 @@ func (ps *PlayingState) Update(dt float32) {
 
 	// Player One Input
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		ps.PlayerOne.Paddle.Position.Y += -7.2
+		ps.PlayerOne.Paddle.Position.Y += -PaddleSpeed
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
-		ps.PlayerOne.Paddle.Position.Y += 7.2
+		ps.PlayerOne.Paddle.Position.Y += PaddleSpeed
 	}
 
 	// Player Two Input
 	if ebiten.IsKeyPressed(ebiten.KeyUp) {
-		ps.PlayerTwo.Paddle.Position.Y += -7.2
+		ps.PlayerTwo.Paddle.Position.Y += -PaddleSpeed
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		ps.PlayerTwo.Paddle.Position.Y += 7.2
+		ps.PlayerTwo.Paddle.Position.Y += PaddleSpeed
 	}
 
 	ps.Ball.Position = math.Vector2fAdd(ps.Ball.Position, ps.Ball.Velocity)
 
-	// Paddle One Collision
+	// Paddle One Ball Collision
 	if ps.Ball.Velocity.X < 0 {
 		if ps.Ball.Position.X+BallSize >= ps.PlayerOne.Paddle.Position.X && ps.Ball.Position.X <= ps.PlayerOne.Paddle.Position.X+ps.PlayerOne.Paddle.Size.X {
 			if ps.Ball.Position.Y+BallSize >= ps.PlayerOne.Paddle.Position.Y && ps.Ball.Position.Y <= ps.PlayerOne.Paddle.Position.Y+ps.PlayerOne.Paddle.Size.Y {
@@ -127,7 +168,7 @@ func (ps *PlayingState) Update(dt float32) {
 		}
 	}
 
-	// Paddle Two Collision
+	// Paddle Two Ball Collision
 	if ps.Ball.Velocity.X > 0 {
 		if ps.Ball.Position.X+BallSize >= ps.PlayerTwo.Paddle.Position.X && ps.Ball.Position.X <= ps.PlayerTwo.Paddle.Position.X+ps.PlayerTwo.Paddle.Size.X {
 			if ps.Ball.Position.Y+BallSize >= ps.PlayerTwo.Paddle.Position.Y && ps.Ball.Position.Y <= ps.PlayerTwo.Paddle.Position.Y+ps.PlayerTwo.Paddle.Size.Y {
@@ -136,7 +177,25 @@ func (ps *PlayingState) Update(dt float32) {
 		}
 	}
 
-	// Bounds Collision
+	// Paddle One Bounds Collision
+	if ps.PlayerOne.Paddle.Position.Y <= 0 {
+		ps.PlayerOne.Paddle.Position.Y = 0
+	}
+
+	if ps.PlayerOne.Paddle.Position.Y+ps.PlayerOne.Paddle.Size.Y >= float32(ps.Bounds.Height) {
+		ps.PlayerOne.Paddle.Position.Y = float32(ps.Bounds.Height) - ps.PlayerTwo.Paddle.Size.Y
+	}
+
+	// Paddle Two Bounds Collision
+	if ps.PlayerTwo.Paddle.Position.Y <= 0 {
+		ps.PlayerTwo.Paddle.Position.Y = 0
+	}
+
+	if ps.PlayerTwo.Paddle.Position.Y+ps.PlayerTwo.Paddle.Size.Y >= float32(ps.Bounds.Height) {
+		ps.PlayerTwo.Paddle.Position.Y = float32(ps.Bounds.Height) - ps.PlayerTwo.Paddle.Size.Y
+	}
+
+	// Ball Bounds Collision
 	if ps.Ball.Position.Y+BallSize >= float32(ps.Bounds.Height) || ps.Ball.Position.Y <= 0 {
 		ps.Ball.Velocity.Y = -ps.Ball.Velocity.Y
 	}
@@ -152,19 +211,29 @@ func (ps *PlayingState) Update(dt float32) {
 
 func (ps *PlayingState) onScore(player *game.Player) {
 	ps.score[player]++
-
 	if ps.score[player] >= ps.Rules.WinningScore {
-		ps.score[ps.PlayerOne] = 0
-		ps.score[ps.PlayerTwo] = 0
-		ps.reset()
+		ps.onGameOver(player)
+		return
 	}
-
 	ps.reset()
+}
+
+func (ps *PlayingState) onGameOver(winner *game.Player) {
+	// for k, _ := range ps.score {
+	// 	ps.score[k] = 0
+	// }
+	// ps.reset()
+
+	ps.eventBus.Publish(
+		NewSetGameStateEvent(
+			NewGameOverState(ps.eventBus, ps, winner),
+		),
+	)
 }
 
 func (ps *PlayingState) reset() {
 	ps.Ball.Position = math.NewVector2f(float32(ps.Bounds.Width)/2, float32(ps.Bounds.Height)/2)
-	ps.Ball.Velocity = math.NewVector2f(-1*2.25, 1*2.25)
+	ps.Ball.Velocity = math.Vector2fMultiplyByScalar(ps.randomVelocity(), BallSpeed)
 
 	ps.PlayerOne.Paddle.Position = math.NewVector2f(
 		PaddleMargin,
@@ -174,5 +243,13 @@ func (ps *PlayingState) reset() {
 	ps.PlayerTwo.Paddle.Position = math.NewVector2f(
 		float32(ps.Bounds.Width)-PaddleMargin-ps.PlayerTwo.Paddle.Size.X,
 		(float32(ps.Bounds.Height)/2)-(ps.PlayerTwo.Paddle.Size.Y/2),
+	)
+}
+
+func (ps *PlayingState) randomVelocity() math.Vector2f {
+	angle := rand.Float64() * 2 * math2.Pi
+	return math.NewVector2f(
+		float32(math2.Cos(angle)),
+		float32(math2.Sin(angle)),
 	)
 }

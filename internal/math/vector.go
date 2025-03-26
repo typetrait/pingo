@@ -22,3 +22,10 @@ func Vector2fAdd(first, second Vector2f) Vector2f {
 		first.Y+second.Y,
 	)
 }
+
+func Vector2fMultiplyByScalar(vec Vector2f, scalar float32) Vector2f {
+	return NewVector2f(
+		vec.X*scalar,
+		vec.Y*scalar,
+	)
+}

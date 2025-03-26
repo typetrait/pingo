@@ -13,6 +13,10 @@ import (
 	"github.com/typetrait/pingo/internal/event"
 )
 
+const (
+	pressEnterLabelText = "Press ENTER to start playing..."
+)
+
 type MenuState struct {
 	eventBus event.EventBus
 
@@ -51,14 +55,14 @@ func (ms *MenuState) Draw(screen *ebiten.Image) {
 	halfLogoHeight := float64(ms.logoImage.Bounds().Size().Y / 2)
 
 	drawOptions := &text.DrawOptions{}
-	w, h := text.Measure("Press ENTER to start playing...", ms.font, drawOptions.LineSpacing)
+	w, h := text.Measure(pressEnterLabelText, ms.font, drawOptions.LineSpacing)
 
 	logoDrawOptions := &ebiten.DrawImageOptions{}
 	logoDrawOptions.GeoM.Translate(400-halfLogoWidth, 300-halfLogoHeight-h)
 	screen.DrawImage(ms.logoImage, logoDrawOptions)
 
 	drawOptions.GeoM.Translate(400-w/2, 300+h*2)
-	text.Draw(screen, "Press ENTER to start playing...", ms.font, drawOptions)
+	text.Draw(screen, pressEnterLabelText, ms.font, drawOptions)
 }
 
 func (ms *MenuState) Update(dt float32) {

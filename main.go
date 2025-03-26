@@ -25,6 +25,13 @@ func NewGame(width, height int32) *Game {
 
 func (g *Game) Run() {
 	bus := event.NewEventBussin()
+
+	bus.Register(event.EventSetGameState, func(event event.Event) {
+		changeStateEvent := event.(*state.SetGameStateEvent)
+		g.state = changeStateEvent.State
+		g.state.Start()
+	})
+
 	bus.Register(event.EventExitGame, func(event event.Event) {
 		g.state = state.NewMenuState(bus)
 		g.state.Start()
@@ -46,6 +53,7 @@ func (g *Game) Run() {
 		)
 
 		playerOne := game.NewPlayer(
+			"Player One",
 			game.NewPaddle(
 				math.NewVector2f(paddleMargin, float32(g.height)/2-paddleHeight/2),
 				math.NewVector2f(paddleWidth, paddleHeight),
@@ -53,6 +61,7 @@ func (g *Game) Run() {
 		)
 
 		playerTwo := game.NewPlayer(
+			"Player Two",
 			game.NewPaddle(
 				math.NewVector2f((float32(g.width)-paddleWidth)-paddleMargin, float32(g.height)/2-paddleHeight/2),
 				math.NewVector2f(paddleWidth, paddleHeight),

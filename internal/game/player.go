@@ -1,11 +1,13 @@
 package game
 
 type Player struct {
+	Name   string
 	Paddle *Paddle
 }
 
-func NewPlayer(paddle *Paddle) *Player {
+func NewPlayer(name string, paddle *Paddle) *Player {
 	return &Player{
+		Name:   name,
 		Paddle: paddle,
 	}
 }

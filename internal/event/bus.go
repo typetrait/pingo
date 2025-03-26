@@ -7,8 +7,6 @@ type EventBus interface {
 	Register(eventType Type, handler Handler)
 }
 
-//
-
 type EventBussin struct {
 	handlers map[Type][]Handler
 }
@@ -19,9 +17,9 @@ func NewEventBussin() *EventBussin {
 	}
 }
 
-func (eb *EventBussin) Publish(event Event) {
-	for _, handler := range eb.handlers[event.Type()] {
-		handler(event)
+func (eb *EventBussin) Publish(ev Event) {
+	for _, handler := range eb.handlers[ev.Type()] {
+		handler(ev)
 	}
 }
 

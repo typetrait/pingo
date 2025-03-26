@@ -3,6 +3,8 @@ package event
 const (
 	EventStartGame Type = iota
 	EventExitGame
+	EventGameOver
+	EventSetGameState
 )
 
 type Type int32

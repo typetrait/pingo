@@ -5,6 +5,7 @@ import (
 	"image/color"
 	math2 "math"
 	"math/rand/v2"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -19,8 +20,10 @@ const (
 	BallSize     = 8
 	PaddleMargin = 55
 
-	BallSpeed   = 6.5
-	PaddleSpeed = 7.2
+	BallSpeed   = 8.5
+	PaddleSpeed = 10
+
+	kickoffDelay = 1 * time.Second
 )
 
 type SetGameStateEvent struct {
@@ -46,23 +49,29 @@ type PlayingState struct {
 	Ball      *game.Ball
 
 	score map[*game.Player]int64
+
+	isRoundOver bool
+	roundOverAt time.Time
+
+	kickoffFrames int
 }
 
 func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Bounds, playerOne, playerTwo *game.Player, ball *game.Ball) *PlayingState {
 	return &PlayingState{
-		eventBus:  eventBus,
-		Rules:     rules,
-		Bounds:    bounds,
-		PlayerOne: playerOne,
-		PlayerTwo: playerTwo,
-		Ball:      ball,
-		score:     map[*game.Player]int64{},
+		eventBus:      eventBus,
+		Rules:         rules,
+		Bounds:        bounds,
+		PlayerOne:     playerOne,
+		PlayerTwo:     playerTwo,
+		Ball:          ball,
+		score:         map[*game.Player]int64{},
+		isRoundOver:   false,
+		roundOverAt:   time.Time{},
+		kickoffFrames: int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS()))),
 	}
 }
 
 func (ps *PlayingState) Start() {
-	ps.reset()
-
 	ps.eventBus.Register(event.EventGameOver, func(ev event.Event) {
 		gameOverEvent := ev.(*GameOverEvent)
 		ps.eventBus.Publish(
@@ -74,6 +83,9 @@ func (ps *PlayingState) Start() {
 
 	ps.score[ps.PlayerOne] = 0
 	ps.score[ps.PlayerTwo] = 0
+
+	ps.reset()
+	ps.kickoffFrames = int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS())))
 }
 
 func (ps *PlayingState) Draw(screen *ebiten.Image) {
@@ -156,7 +168,19 @@ func (ps *PlayingState) Update(dt float32) {
 		ps.PlayerTwo.Paddle.Position.Y += PaddleSpeed
 	}
 
-	ps.Ball.Position = math.Vector2fAdd(ps.Ball.Position, ps.Ball.Velocity)
+	// Ball movement logic
+	if ps.kickoffFrames > 0 {
+		ps.kickoffFrames--
+
+		if ps.kickoffFrames <= 0 {
+			ps.kickoffFrames = 0
+			ps.ballKickoff()
+		}
+	} else {
+		ps.Ball.Position = ps.Ball.Position.Add(
+			ps.Ball.Velocity.MultiplyByScalar(BallSpeed),
+		)
+	}
 
 	// Paddle One Ball Collision
 	if ps.Ball.Velocity.X < 0 {
@@ -199,13 +223,20 @@ func (ps *PlayingState) Update(dt float32) {
 		ps.Ball.Velocity.Y = -ps.Ball.Velocity.Y
 	}
 
-	if ps.Ball.Position.X+BallSize <= 0 {
-		ps.onScore(ps.PlayerTwo)
-		return
-	} else if ps.Ball.Position.X >= float32(ps.Bounds.Width) {
-		ps.onScore(ps.PlayerOne)
-		return
+	if !ps.isRoundOver {
+		if ps.Ball.Position.X+BallSize <= 0 {
+			ps.onScore(ps.PlayerTwo)
+			return
+		} else if ps.Ball.Position.X >= float32(ps.Bounds.Width) {
+			ps.onScore(ps.PlayerOne)
+			return
+		}
 	}
+}
+
+func (ps *PlayingState) onRoundStart() {
+	ps.setRoundOver(false)
+	ps.resetBall()
 }
 
 func (ps *PlayingState) onScore(player *game.Player) {
@@ -214,7 +245,8 @@ func (ps *PlayingState) onScore(player *game.Player) {
 		ps.onGameOver(player)
 		return
 	}
-	ps.resetBall()
+	ps.kickoffFrames = int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS())))
+	ps.onRoundStart()
 }
 
 func (ps *PlayingState) onGameOver(winner *game.Player) {
@@ -236,7 +268,6 @@ func (ps *PlayingState) reset() {
 
 func (ps *PlayingState) resetBall() {
 	ps.Ball.Position = math.NewVector2f(float32(ps.Bounds.Width)/2, float32(ps.Bounds.Height)/2)
-	ps.Ball.Velocity = math.Vector2fMultiplyByScalar(ps.randomBallVelocity(), BallSpeed)
 }
 
 func (ps *PlayingState) resetPaddles() {
@@ -251,6 +282,10 @@ func (ps *PlayingState) resetPaddles() {
 	)
 }
 
+func (ps *PlayingState) ballKickoff() {
+	ps.Ball.Velocity = ps.randomBallVelocity()
+}
+
 func (ps *PlayingState) randomBallVelocity() math.Vector2f {
 	var angle float64
 	if rand.IntN(2) == 0 {
@@ -262,8 +297,17 @@ func (ps *PlayingState) randomBallVelocity() math.Vector2f {
 	x := math2.Cos(angle)
 	y := math2.Sin(angle)
 
-	return math.NewVector2f(
+	velocity := math.NewVector2f(
 		float32(x),
 		float32(y),
-	)
+	).Normalize()
+
+	return velocity
+}
+
+func (ps *PlayingState) setRoundOver(isOver bool) {
+	ps.isRoundOver = isOver
+	if isOver {
+		ps.roundOverAt = time.Now()
+	}
 }

@@ -1,5 +1,9 @@
 package math
 
+import (
+	math2 "math"
+)
+
 type Vector2f struct {
 	X float32
 	Y float32
@@ -14,6 +18,22 @@ func NewVector2f(x, y float32) Vector2f {
 		X: x,
 		Y: y,
 	}
+}
+
+func (v Vector2f) Normalize() Vector2f {
+	mag := float32(math2.Sqrt(float64(v.X)*float64(v.X) + float64(v.Y)*float64(v.Y)))
+	if mag == 0 {
+		return NewVector2f(0, 0)
+	}
+	return NewVector2f(v.X/mag, v.Y/mag)
+}
+
+func (v Vector2f) Add(other Vector2f) Vector2f {
+	return Vector2fAdd(v, other)
+}
+
+func (v Vector2f) MultiplyByScalar(scalar float32) Vector2f {
+	return Vector2fMultiplyByScalar(v, scalar)
 }
 
 func Vector2fAdd(first, second Vector2f) Vector2f {

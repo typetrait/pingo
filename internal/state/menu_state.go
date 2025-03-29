@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"log"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/examples/resources/fonts"
@@ -66,6 +67,10 @@ func (ms *MenuState) Draw(screen *ebiten.Image) {
 }
 
 func (ms *MenuState) Update(dt float32) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		os.Exit(0)
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		ms.eventBus.Publish(&event.StartGameEvent{})
 		return

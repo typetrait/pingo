@@ -57,6 +57,7 @@ func (g *Game) Run() {
 			game.NewPaddle(
 				math.NewVector2f(paddleMargin, float32(g.height)/2-paddleHeight/2),
 				math.NewVector2f(paddleWidth, paddleHeight),
+				game.BasePaddleRoughness,
 			),
 		)
 
@@ -65,6 +66,7 @@ func (g *Game) Run() {
 			game.NewPaddle(
 				math.NewVector2f((float32(g.width)-paddleWidth)-paddleMargin, float32(g.height)/2-paddleHeight/2),
 				math.NewVector2f(paddleWidth, paddleHeight),
+				game.BasePaddleRoughness,
 			),
 		)
 

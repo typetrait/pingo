@@ -74,7 +74,8 @@ func (gos *GameOverState) Draw(screen *ebiten.Image) {
 
 func (gos *GameOverState) Update(dt float32) {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		gos.eventBus.Publish(&event.StartGameEvent{})
+		ev := NewStartGameEvent(gos.playingState.mode)
+		gos.eventBus.Publish(&ev)
 		return
 	}
 }

@@ -23,7 +23,7 @@ const (
 	BallSpeed   = 8.5
 	PaddleSpeed = 10
 
-	kickoffDelay = 1 * time.Second
+	ballKickoffDelay = 1 * time.Second
 )
 
 type SetGameStateEvent struct {
@@ -54,6 +54,8 @@ type PlayingState struct {
 	roundOverAt time.Time
 
 	kickoffFrames int
+
+	mode GameMode
 }
 
 func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Bounds, playerOne, playerTwo *game.Player, ball *game.Ball) *PlayingState {
@@ -66,8 +68,7 @@ func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Boun
 		Ball:          ball,
 		score:         map[*game.Player]int64{},
 		isRoundOver:   false,
-		roundOverAt:   time.Time{},
-		kickoffFrames: int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS()))),
+		kickoffFrames: int(float64(ballKickoffDelay.Seconds() * float64(ebiten.TPS()))),
 	}
 }
 
@@ -85,7 +86,7 @@ func (ps *PlayingState) Start() {
 	ps.score[ps.PlayerTwo] = 0
 
 	ps.reset()
-	ps.kickoffFrames = int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS())))
+	ps.kickoffFrames = int(float64(ballKickoffDelay.Seconds() * float64(ebiten.TPS())))
 }
 
 func (ps *PlayingState) Draw(screen *ebiten.Image) {
@@ -235,7 +236,7 @@ func (ps *PlayingState) Update(dt float32) {
 }
 
 func (ps *PlayingState) onRoundStart() {
-	ps.setRoundOver(false)
+	ps.isRoundOver = false
 	ps.resetBall()
 }
 
@@ -245,7 +246,7 @@ func (ps *PlayingState) onScore(player *game.Player) {
 		ps.onGameOver(player)
 		return
 	}
-	ps.kickoffFrames = int(float64(kickoffDelay.Seconds() * float64(ebiten.TPS())))
+	ps.kickoffFrames = int(float64(ballKickoffDelay.Seconds() * float64(ebiten.TPS())))
 	ps.onRoundStart()
 }
 
@@ -303,11 +304,4 @@ func (ps *PlayingState) randomBallVelocity() math.Vector2f {
 	).Normalize()
 
 	return velocity
-}
-
-func (ps *PlayingState) setRoundOver(isOver bool) {
-	ps.isRoundOver = isOver
-	if isOver {
-		ps.roundOverAt = time.Now()
-	}
 }

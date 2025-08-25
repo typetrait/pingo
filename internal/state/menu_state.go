@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	pressEnterLabelText = "Press ENTER to start playing..."
+	playLabelText = "Press 1 for Singleplayer | Press 2 for Multiplayer"
 )
 
 type MenuState struct {
@@ -56,14 +56,14 @@ func (ms *MenuState) Draw(screen *ebiten.Image) {
 	halfLogoHeight := float64(ms.logoImage.Bounds().Size().Y / 2)
 
 	drawOptions := &text.DrawOptions{}
-	w, h := text.Measure(pressEnterLabelText, ms.font, drawOptions.LineSpacing)
+	w, h := text.Measure(playLabelText, ms.font, drawOptions.LineSpacing)
 
 	logoDrawOptions := &ebiten.DrawImageOptions{}
 	logoDrawOptions.GeoM.Translate(400-halfLogoWidth, 300-halfLogoHeight-h)
 	screen.DrawImage(ms.logoImage, logoDrawOptions)
 
 	drawOptions.GeoM.Translate(400-w/2, 300+h*2)
-	text.Draw(screen, pressEnterLabelText, ms.font, drawOptions)
+	text.Draw(screen, playLabelText, ms.font, drawOptions)
 }
 
 func (ms *MenuState) Update(dt float32) {
@@ -71,8 +71,15 @@ func (ms *MenuState) Update(dt float32) {
 		os.Exit(0)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		ms.eventBus.Publish(&event.StartGameEvent{})
+	if inpututil.IsKeyJustPressed(ebiten.Key1) {
+		ev := NewStartGameEvent(GameModeSinglePlayer)
+		ms.eventBus.Publish(&ev)
+		return
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.Key2) {
+		ev := NewStartGameEvent(GameModeMultiPlayer)
+		ms.eventBus.Publish(&ev)
 		return
 	}
 }

@@ -5,8 +5,8 @@ type Bounds struct {
 	Height int32
 }
 
-func NewBounds(width, height int32) Bounds {
-	return Bounds{
+func NewBounds(width, height int32) *Bounds {
+	return &Bounds{
 		Width:  width,
 		Height: height,
 	}

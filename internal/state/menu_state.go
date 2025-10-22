@@ -12,6 +12,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/typetrait/pingo/assets"
 	"github.com/typetrait/pingo/internal/event"
+	"github.com/typetrait/pingo/internal/game"
+	"github.com/typetrait/pingo/internal/networking"
 )
 
 const (
@@ -72,14 +74,22 @@ func (ms *MenuState) Update(dt float32) {
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.Key1) {
-		ev := NewStartGameEvent(GameModeSinglePlayer)
-		ms.eventBus.Publish(&ev)
+		logic := &LocalGameLogic{}
+		rules := game.NewRules(5)
+		bounds := game.NewBounds(
+			int32(800),
+			int32(600),
+		)
+		ev := NewStartGameEvent(logic, GameModeSinglePlayer, rules, bounds)
+		ms.eventBus.Publish(ev)
 		return
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.Key2) {
-		ev := NewStartGameEvent(GameModeMultiPlayer)
-		ms.eventBus.Publish(&ev)
+		authority := networking.NewServerAuthority()
+		mms := NewMatchmakingState(ms.eventBus, authority)
+		ev := NewSetGameStateEvent(mms)
+		ms.eventBus.Publish(ev)
 		return
 	}
 }

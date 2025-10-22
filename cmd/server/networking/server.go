@@ -1,0 +1,149 @@
+package networking
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"sync"
+
+	"github.com/google/uuid"
+	"github.com/typetrait/pingo/cmd/server/game"
+	"github.com/typetrait/pingo/internal/networking"
+	"github.com/typetrait/pingo/internal/packet/serverbound"
+)
+
+const (
+	protocolVersion uint8 = 0
+)
+
+var (
+	ErrUnknownPacketType = errors.New("unknown packet type")
+)
+
+type Server struct {
+	running bool
+
+	mu       sync.Mutex
+	sessions []*Session
+
+	mu2     sync.Mutex
+	matches map[string]*game.Match
+}
+
+func NewServer() *Server {
+	return &Server{
+		running: false,
+	}
+}
+
+func (s *Server) Start() error {
+	addr := ":7777"
+
+	log.Println("listening on", addr)
+	log.Println("waiting for connections...")
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("could not listen on port %s", addr)
+	}
+
+	s.running = true
+	for s.running {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Println("could not accept connection")
+			continue
+		}
+
+		go s.HandleConnection(conn)
+	}
+
+	return nil
+}
+
+func (s *Server) Stop() {
+	s.running = false
+}
+
+func (s *Server) HandleConnection(conn net.Conn) {
+	log.Println("handling new connection")
+
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			log.Println("could not close connection")
+		}
+	}(conn)
+
+	session := NewSession(s, &ClientInfo{}, conn)
+	s.addSession(session)
+
+	for {
+		log.Printf("session is in %q state", session.state)
+		err := session.state.Handle()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				log.Println("connection closed")
+				return
+			}
+			log.Println(err)
+			return
+		}
+	}
+}
+
+func (s *Server) SendPacket(conn net.Conn, packet networking.Packet) error {
+	packet.Write(conn)
+	return nil
+}
+
+func (s *Server) ReadPacket(conn net.Conn) (networking.Packet, error) {
+	readBuf := make([]byte, 1)
+	n, err := conn.Read(readBuf)
+	if err != nil || n != 1 {
+		return nil, fmt.Errorf("could not read from connection: %w", err)
+	}
+
+	packetID := readBuf[0]
+
+	switch packetID {
+	case serverbound.C2SHandshakePacket:
+		pkt := serverbound.Handshake{}
+		pkt.Read(conn)
+		return &pkt, nil
+	default:
+		return nil, ErrUnknownPacketType
+	}
+}
+
+func (s *Server) addSession(session *Session) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sessions = append(s.sessions, session)
+}
+
+func (s *Server) createMatch() (*game.Match, error) {
+	id, err := s.generateMatchID()
+	if err != nil {
+		return nil, fmt.Errorf("generating match ID: %w", err)
+	}
+
+	match := &game.Match{
+		ID: id,
+	}
+
+	s.mu2.Lock()
+	defer s.mu2.Unlock()
+	s.matches[match.ID] = match
+
+	return match, nil
+}
+
+func (s *Server) generateMatchID() (string, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return "", fmt.Errorf("generating random UUID: %w", err)
+	}
+	return id.String(), nil
+}

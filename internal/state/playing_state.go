@@ -41,9 +41,11 @@ func (e *SetGameStateEvent) Type() event.Type {
 }
 
 type PlayingState struct {
+	Logic GameLogic
+
 	eventBus  event.EventBus
-	Rules     game.Rules
-	Bounds    game.Bounds
+	Rules     *game.Rules
+	Bounds    *game.Bounds
 	PlayerOne *game.Player
 	PlayerTwo *game.Player
 	Ball      *game.Ball
@@ -58,8 +60,41 @@ type PlayingState struct {
 	mode GameMode
 }
 
-func NewPlayingState(eventBus event.EventBus, rules game.Rules, bounds game.Bounds, playerOne, playerTwo *game.Player, ball *game.Ball) *PlayingState {
+func NewPlayingState(logic GameLogic, eventBus event.EventBus, rules *game.Rules, bounds *game.Bounds) *PlayingState {
+	paddleWidth := float32(bounds.Width) * 0.01
+	paddleHeight := float32(bounds.Height) * 0.25
+	paddleMargin := float32(25)
+
+	ballWidth := 8
+	ballHeight := 8
+
+	ball := game.NewBall(
+		math.NewVector2f(
+			float32(bounds.Width)/2-(float32(ballWidth)/2), float32(bounds.Height)/2-(float32(ballHeight)/2),
+		),
+		math.ZeroVector2f,
+	)
+
+	playerOne := game.NewPlayer(
+		"Player One",
+		game.NewPaddle(
+			math.NewVector2f(paddleMargin, float32(bounds.Height)/2-paddleHeight/2),
+			math.NewVector2f(paddleWidth, paddleHeight),
+			game.BasePaddleRoughness,
+		),
+	)
+
+	playerTwo := game.NewPlayer(
+		"Player Two",
+		game.NewPaddle(
+			math.NewVector2f((float32(bounds.Width)-paddleWidth)-paddleMargin, float32(bounds.Height)/2-paddleHeight/2),
+			math.NewVector2f(paddleWidth, paddleHeight),
+			game.BasePaddleRoughness,
+		),
+	)
+
 	return &PlayingState{
+		Logic:         logic,
 		eventBus:      eventBus,
 		Rules:         rules,
 		Bounds:        bounds,
@@ -161,13 +196,15 @@ func (ps *PlayingState) Update(dt float32) {
 	}
 
 	// Player Two Input
-	if ebiten.IsKeyPressed(ebiten.KeyUp) {
-		ps.PlayerTwo.Paddle.Position.Y += -PaddleSpeed
-	}
+	//if ebiten.IsKeyPressed(ebiten.KeyUp) {
+	//	ps.PlayerTwo.Paddle.Position.Y += -PaddleSpeed
+	//}
+	//
+	//if ebiten.IsKeyPressed(ebiten.KeyDown) {
+	//	ps.PlayerTwo.Paddle.Position.Y += PaddleSpeed
+	//}
 
-	if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		ps.PlayerTwo.Paddle.Position.Y += PaddleSpeed
-	}
+	ps.updateAI()
 
 	// Ball movement logic
 	if ps.kickoffFrames > 0 {
@@ -251,10 +288,6 @@ func (ps *PlayingState) onScore(player *game.Player) {
 }
 
 func (ps *PlayingState) onGameOver(winner *game.Player) {
-	// for k, _ := range ps.score {
-	// 	ps.score[k] = 0
-	// }
-
 	ps.eventBus.Publish(
 		NewSetGameStateEvent(
 			NewGameOverState(ps.eventBus, ps, winner),
@@ -304,4 +337,8 @@ func (ps *PlayingState) randomBallVelocity() math.Vector2f {
 	).Normalize()
 
 	return velocity
+}
+
+func (ps *PlayingState) updateAI() {
+	ps.PlayerTwo.Paddle.Position.Y = ps.Ball.Position.Y
 }

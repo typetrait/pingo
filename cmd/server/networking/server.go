@@ -1,11 +1,13 @@
 package networking
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/google/uuid"
@@ -43,18 +45,18 @@ func NewServer() *Server {
 func (s *Server) Start() error {
 	addr := ":7777"
 
-	log.Println("listening on", addr)
-	log.Println("waiting for connections...")
+	slog.Info("listening", "address", addr)
+	slog.Info("waiting for connections")
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return fmt.Errorf("could not listen on port %s", addr)
+		return fmt.Errorf("could not listen on address %s", addr)
 	}
 
 	s.running = true
 	for s.running {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println("could not accept connection")
+			slog.Error("could not accept connection")
 			continue
 		}
 
@@ -69,27 +71,34 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) HandleConnection(conn net.Conn) {
-	log.Println("handling new connection")
+	slog.Debug("handling new connection")
 
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
-			log.Println("could not close connection")
+			slog.Error("could not close connection")
 		}
 	}(conn)
 
 	session := NewSession(s, &ClientInfo{}, conn)
 	sessionID := s.addSession(session)
 
+	session.Logger = slog.
+		Default().
+		WithGroup(fmt.Sprintf("session_%s", strconv.Itoa(sessionID)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	for {
-		log.Printf("session %d is in %q state", sessionID, session.state)
-		err := session.state.Handle()
+		session.Logger.Info("session state", "state", session.state)
+		err := session.state.Handle(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				log.Println("connection closed")
+				session.Logger.Info("connection closed")
 				return
 			}
-			log.Println(err)
+			session.Logger.Error(err.Error())
 			return
 		}
 	}

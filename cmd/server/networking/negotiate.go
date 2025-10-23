@@ -1,8 +1,8 @@
 package networking
 
 import (
+	"context"
 	"fmt"
-	"log"
 
 	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/packet/clientbound"
@@ -17,7 +17,7 @@ type NegotiateSessionState struct {
 	session *Session
 }
 
-func (s *NegotiateSessionState) Handle() error {
+func (s *NegotiateSessionState) Handle(ctx context.Context) error {
 	// Receive and handle Handshake
 	p, err := s.session.server.ReadPacket(s.session.conn)
 	if err != nil {
@@ -52,11 +52,11 @@ func (s *NegotiateSessionState) Handle() error {
 		}
 		s.session.SetState(hms)
 	case *serverbound.JoinMatch:
-		_, ok := s.session.server.matches[pkt.MatchID]
-		if !ok {
-			return fmt.Errorf("match not found")
+		err := s.handleJoinMatch(pkt)
+		if err != nil {
+			return fmt.Errorf("joining match: %w", err)
 		}
-		log.Printf("received match join from player %q", pkt.PlayerName)
+		// TODO: Set State
 	default:
 		return fmt.Errorf("unexpected packet")
 	}
@@ -65,7 +65,7 @@ func (s *NegotiateSessionState) Handle() error {
 }
 
 func (s *NegotiateSessionState) handleHandshake(p *serverbound.Handshake) error {
-	log.Println("got handshake packet")
+	s.session.Logger.Debug("handshake request received")
 	if p.ProtocolVersion != protocolVersion {
 		return fmt.Errorf("protocol version mismatch")
 	}
@@ -76,26 +76,24 @@ func (s *NegotiateSessionState) handleHandshake(p *serverbound.Handshake) error 
 		return fmt.Errorf("sending client bound handshake packet: %w", err)
 	}
 
-	log.Println("handshake complete")
+	s.session.Logger.Info("handshake complete")
 	return nil
 }
 
 func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*game.Match, error) {
-	log.Println("match creation requested")
+	s.session.Logger.Debug("match creation request received")
 
-	log.Println("creating match")
+	s.session.Logger.Debug("creating match")
 	match, err := s.session.server.createMatch()
 	if err != nil {
 		return nil, fmt.Errorf("creating match: %w", err)
 	}
 
-	log.Printf("match with id %s created", match.ID)
+	s.session.Logger.Info("match created", "id", match.ID)
 
 	mc := &clientbound.MatchCreated{
 		MatchID: match.ID,
 	}
-
-	log.Println("notifying client of newly created match")
 
 	err = s.session.server.SendPacket(s.session.conn, mc)
 	if err != nil {
@@ -103,6 +101,15 @@ func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*
 	}
 
 	return match, nil
+}
+
+func (s *NegotiateSessionState) handleJoinMatch(p *serverbound.JoinMatch) error {
+	s.session.Logger.Debug("match join request received", "player", p.PlayerName)
+	_, ok := s.session.server.matches[p.MatchID]
+	if !ok {
+		return fmt.Errorf("match not found")
+	}
+	return nil
 }
 
 func (s *NegotiateSessionState) String() string {

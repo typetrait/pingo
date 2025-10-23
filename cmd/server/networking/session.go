@@ -1,17 +1,21 @@
 package networking
 
 import (
+	"context"
+	"log/slog"
 	"net"
 )
 
 type SessionState interface {
-	Handle() error
+	Handle(ctx context.Context) error
 }
 
 type ClientInfo struct {
 }
 
 type Session struct {
+	Logger *slog.Logger
+	
 	server     *Server
 	clientInfo *ClientInfo
 	conn       net.Conn

@@ -1,8 +1,9 @@
 package networking
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/packet/serverbound"
@@ -17,7 +18,7 @@ type HostingMatchSessionState struct {
 	Match   *game.Match
 }
 
-func (s *HostingMatchSessionState) Handle() error {
+func (s *HostingMatchSessionState) Handle(ctx context.Context) error {
 	p, err := s.session.server.ReadPacket(s.session.conn)
 	if err != nil {
 		return fmt.Errorf("reading packet: %w", err)
@@ -29,9 +30,16 @@ func (s *HostingMatchSessionState) Handle() error {
 	}
 
 	if joinMatch.MatchID != s.Match.ID {
-		log.Printf("got match id %q", joinMatch.MatchID)
+		slog.Debug("got match id %q", joinMatch.MatchID)
 		return fmt.Errorf("unexpected match ID")
 	}
+
+	secondPlayer := &game.Player{
+		Name:  joinMatch.PlayerName,
+		Score: 0,
+	}
+
+	slog.Info("player %q joined the match", secondPlayer.Name)
 
 	pss := &PlayingSessionState{
 		session: s.session,

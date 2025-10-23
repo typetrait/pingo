@@ -1,7 +1,7 @@
 package networking
 
 import (
-	"fmt"
+	"context"
 	"sync"
 	"time"
 
@@ -23,7 +23,7 @@ type PlayingSessionState struct {
 	Match   *game.Match
 }
 
-func (s *PlayingSessionState) Handle() error {
+func (s *PlayingSessionState) Handle(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -47,7 +47,7 @@ func (s *PlayingSessionState) Handle() error {
 
 		select {
 		case <-ticker.C:
-			fmt.Println("tick!")
+			s.session.Logger.Debug("tick!")
 			clientState := &clientbound.GameState{
 				PlayerOnePos: math.Vector2f{
 					X: 0,
@@ -64,7 +64,7 @@ func (s *PlayingSessionState) Handle() error {
 			}
 			err := s.session.server.SendPacket(s.session.conn, clientState)
 			if err != nil {
-				fmt.Println("error sending game state packet:", err)
+				s.session.Logger.Error("error sending game state packet", err)
 			}
 		}
 	}()

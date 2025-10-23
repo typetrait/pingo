@@ -2,6 +2,7 @@ package networking
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/packet/serverbound"
@@ -24,10 +25,11 @@ func (s *HostingMatchSessionState) Handle() error {
 
 	joinMatch, ok := p.(*serverbound.JoinMatch)
 	if !ok {
-		return fmt.Errorf("unexpected packet")
+		return fmt.Errorf("unexpected packet blurgh")
 	}
 
 	if joinMatch.MatchID != s.Match.ID {
+		log.Printf("got match id %q", joinMatch.MatchID)
 		return fmt.Errorf("unexpected match ID")
 	}
 

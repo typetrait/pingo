@@ -34,7 +34,9 @@ type Server struct {
 
 func NewServer() *Server {
 	return &Server{
-		running: false,
+		running:  false,
+		sessions: make([]*Session, 0),
+		matches:  make(map[string]*game.Match),
 	}
 }
 
@@ -77,10 +79,10 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}(conn)
 
 	session := NewSession(s, &ClientInfo{}, conn)
-	s.addSession(session)
+	sessionID := s.addSession(session)
 
 	for {
-		log.Printf("session is in %q state", session.state)
+		log.Printf("session %d is in %q state", sessionID, session.state)
 		err := session.state.Handle()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -112,15 +114,24 @@ func (s *Server) ReadPacket(conn net.Conn) (networking.Packet, error) {
 		pkt := serverbound.Handshake{}
 		pkt.Read(conn)
 		return &pkt, nil
+	case serverbound.C2SCreateMatch:
+		pkt := serverbound.CreateMatch{}
+		pkt.Read(conn)
+		return &pkt, nil
+	case serverbound.C2SJoinMatch:
+		pkt := serverbound.JoinMatch{}
+		pkt.Read(conn)
+		return &pkt, nil
 	default:
 		return nil, ErrUnknownPacketType
 	}
 }
 
-func (s *Server) addSession(session *Session) {
+func (s *Server) addSession(session *Session) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sessions = append(s.sessions, session)
+	return len(s.sessions) - 1
 }
 
 func (s *Server) createMatch() (*game.Match, error) {

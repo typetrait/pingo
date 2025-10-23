@@ -27,29 +27,26 @@ func (s *PlayingSessionState) Handle() error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		//p, err := s.session.server.ReadPacket(s.session.conn)
-		//if err != nil {
-		//	return fmt.Errorf("reading packet: %w", err)
-		//}
-		//
-		//joinMatch, ok := p.(*serverbound.JoinMatch)
-		//if !ok {
-		//	return fmt.Errorf("unexpected packet")
-		//}
-		//
-		//if joinMatch.MatchID != s.Match.ID {
-		//	return fmt.Errorf("unexpected match ID")
-		//}
-	}()
+	//go func() error {
+	//	defer wg.Done()
+	//	//
+	//	//joinMatch, ok := p.(*serverbound.JoinMatch)
+	//	//if !ok {
+	//	//	return fmt.Errorf("unexpected packet")
+	//	//}
+	//	//
+	//	//if joinMatch.MatchID != s.Match.ID {
+	//	//	return fmt.Errorf("unexpected match ID")
+	//	//}
+	//}()
 
-	timer := time.NewTimer(time.Duration(tickRate) * time.Second)
+	ticker := time.NewTicker(time.Second / time.Duration(tickRate))
+	defer ticker.Stop()
 	go func() {
 		defer wg.Done()
 
 		select {
-		case <-timer.C:
+		case <-ticker.C:
 			fmt.Println("tick!")
 			clientState := &clientbound.GameState{
 				PlayerOnePos: math.Vector2f{

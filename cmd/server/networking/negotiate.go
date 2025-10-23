@@ -40,10 +40,9 @@ func (s *NegotiateSessionState) Handle() error {
 		return fmt.Errorf("reading packet: %w", err)
 	}
 
-	switch p.(type) {
+	switch pkt := p.(type) {
 	case *serverbound.CreateMatch:
-		cm := p.(*serverbound.CreateMatch)
-		m, err := s.handleCreateMatch(cm)
+		m, err := s.handleCreateMatch(pkt)
 		if err != nil {
 			return fmt.Errorf("creating match: %w", err)
 		}
@@ -52,6 +51,14 @@ func (s *NegotiateSessionState) Handle() error {
 			Match:   m,
 		}
 		s.session.SetState(hms)
+	case *serverbound.JoinMatch:
+		_, ok := s.session.server.matches[pkt.MatchID]
+		if !ok {
+			return fmt.Errorf("match not found")
+		}
+		log.Printf("received match join from player %q", pkt.PlayerName)
+	default:
+		return fmt.Errorf("unexpected packet")
 	}
 
 	return nil

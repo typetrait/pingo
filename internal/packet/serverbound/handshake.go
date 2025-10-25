@@ -11,7 +11,7 @@ type Handshake struct {
 }
 
 func (p *Handshake) ID() uint8 {
-	return p.id
+	return C2SHandshakePacket
 }
 
 func (p *Handshake) Read(reader io.Reader) {
@@ -20,6 +20,6 @@ func (p *Handshake) Read(reader io.Reader) {
 }
 
 func (p *Handshake) Write(writer io.Writer) {
-	_ = binary.Write(writer, binary.LittleEndian, p.id)
+	_ = binary.Write(writer, binary.LittleEndian, p.ID())
 	_ = binary.Write(writer, binary.LittleEndian, p.ProtocolVersion)
 }

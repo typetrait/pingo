@@ -6,23 +6,20 @@ import (
 )
 
 type PaddleMove struct {
-	ID uint8
+	id uint8
 	Y  float32
 }
 
-func NewPaddleMove(y float32) *PaddleMove {
-	return &PaddleMove{
-		ID: C2SPaddleMovePacket,
-		Y:  y,
-	}
+func (p *PaddleMove) ID() uint8 {
+	return C2SPaddleMovePacket
 }
 
 func (p *PaddleMove) Read(reader io.Reader) {
-	_ = binary.Read(reader, binary.LittleEndian, &p.ID)
+	// _ = binary.Read(reader, binary.LittleEndian, &p.id)
 	_ = binary.Read(reader, binary.LittleEndian, &p.Y)
 }
 
 func (p *PaddleMove) Write(writer io.Writer) {
-	_ = binary.Write(writer, binary.LittleEndian, p.ID)
+	_ = binary.Write(writer, binary.LittleEndian, p.ID())
 	_ = binary.Write(writer, binary.LittleEndian, p.Y)
 }

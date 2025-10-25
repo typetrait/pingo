@@ -56,7 +56,6 @@ func (s *NegotiateSessionState) Handle(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("joining match: %w", err)
 		}
-		// TODO: Set State
 	default:
 		return fmt.Errorf("unexpected packet")
 	}
@@ -84,7 +83,7 @@ func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*
 	s.session.Logger.Debug("match creation request received")
 
 	s.session.Logger.Debug("creating match")
-	match, err := s.session.server.createMatch()
+	match, err := s.session.server.createMatch(s.session)
 	if err != nil {
 		return nil, fmt.Errorf("creating match: %w", err)
 	}
@@ -105,10 +104,20 @@ func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*
 
 func (s *NegotiateSessionState) handleJoinMatch(p *serverbound.JoinMatch) error {
 	s.session.Logger.Debug("match join request received", "player", p.PlayerName)
-	_, ok := s.session.server.matches[p.MatchID]
+	m, ok := s.session.server.matches[p.MatchID]
 	if !ok {
 		return fmt.Errorf("match not found")
 	}
+
+	m.SetPlayer(s.session.conn)
+
+	pss := &PlayingSessionState{
+		session: s.session,
+		Match:   m,
+	}
+
+	s.session.SetState(pss)
+
 	return nil
 }
 

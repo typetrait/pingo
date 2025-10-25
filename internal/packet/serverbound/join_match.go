@@ -14,7 +14,7 @@ type JoinMatch struct {
 }
 
 func (p *JoinMatch) ID() uint8 {
-	return p.id
+	return C2SJoinMatch
 }
 
 func (p *JoinMatch) Read(reader io.Reader) {
@@ -24,7 +24,7 @@ func (p *JoinMatch) Read(reader io.Reader) {
 }
 
 func (p *JoinMatch) Write(writer io.Writer) {
-	_ = binary.Write(writer, binary.LittleEndian, p.id)
+	_ = binary.Write(writer, binary.LittleEndian, p.ID())
 	_ = encoding.WriteVarString(writer, binary.LittleEndian, p.MatchID)
 	_ = encoding.WriteVarString(writer, binary.LittleEndian, p.PlayerName)
 }

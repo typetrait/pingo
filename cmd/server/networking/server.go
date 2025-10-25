@@ -143,15 +143,13 @@ func (s *Server) addSession(session *Session) int {
 	return len(s.sessions) - 1
 }
 
-func (s *Server) createMatch() (*game.Match, error) {
+func (s *Server) createMatch(session *Session) (*game.Match, error) {
 	id, err := s.generateMatchID()
 	if err != nil {
 		return nil, fmt.Errorf("generating match ID: %w", err)
 	}
 
-	match := &game.Match{
-		ID: id,
-	}
+	match := game.NewMatch(id, session.conn)
 
 	s.mu2.Lock()
 	defer s.mu2.Unlock()

@@ -15,15 +15,20 @@ type GameState struct {
 }
 
 func (p *GameState) ID() uint8 {
-	return p.id
+	return S2CGameState
 }
 
 func (p *GameState) Read(reader io.Reader) {
-	_ = binary.Read(reader, binary.LittleEndian, &p.id)
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerOnePos.X)
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerOnePos.Y)
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerTwoPos.X)
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerTwoPos.Y)
+	_ = binary.Read(reader, binary.LittleEndian, &p.BallPos.X)
+	_ = binary.Read(reader, binary.LittleEndian, &p.BallPos.Y)
 }
 
 func (p *GameState) Write(writer io.Writer) {
-	_ = binary.Write(writer, binary.LittleEndian, p.id)
+	_ = binary.Write(writer, binary.LittleEndian, p.ID())
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerOnePos.X)
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerOnePos.Y)
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerTwoPos.X)

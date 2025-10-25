@@ -2,12 +2,14 @@ package networking
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/math"
 	"github.com/typetrait/pingo/internal/packet/clientbound"
+	"github.com/typetrait/pingo/internal/packet/serverbound"
 )
 
 const (
@@ -24,52 +26,74 @@ type PlayingSessionState struct {
 }
 
 func (s *PlayingSessionState) Handle(ctx context.Context) error {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	//go func() error {
-	//	defer wg.Done()
-	//	//
-	//	//joinMatch, ok := p.(*serverbound.JoinMatch)
-	//	//if !ok {
-	//	//	return fmt.Errorf("unexpected packet")
-	//	//}
-	//	//
-	//	//if joinMatch.MatchID != s.Match.ID {
-	//	//	return fmt.Errorf("unexpected match ID")
-	//	//}
-	//}()
+	play := &clientbound.Play{}
+	err := s.session.server.SendPacket(s.session.conn, play)
+	if err != nil {
+		return fmt.Errorf("sending play packet: %w", err)
+	}
 
 	ticker := time.NewTicker(time.Second / time.Duration(tickRate))
 	defer ticker.Stop()
-	go func() {
-		defer wg.Done()
 
-		select {
-		case <-ticker.C:
-			s.session.Logger.Debug("tick!")
-			clientState := &clientbound.GameState{
-				PlayerOnePos: math.Vector2f{
-					X: 0,
-					Y: 0,
-				},
-				PlayerTwoPos: math.Vector2f{
-					X: 0,
-					Y: 0,
-				},
-				BallPos: math.Vector2f{
-					X: 0,
-					Y: 0,
-				},
-			}
-			err := s.session.server.SendPacket(s.session.conn, clientState)
-			if err != nil {
-				s.session.Logger.Error("error sending game state packet", err)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Input from this session's connection
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				wg.Done()
+			default:
+				p, err := s.session.server.ReadPacket(s.session.conn)
+				if err != nil {
+				}
+
+				switch pkt := p.(type) {
+				case *serverbound.PaddleMove:
+					s.session.Logger.Debug("paddle move", "match_id", s.Match.ID, "y_pos", pkt.Y)
+				}
 			}
 		}
 	}()
 
+	// TODO: Move this
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				wg.Done()
+			case <-ticker.C:
+				s.session.Logger.Debug("game state", "match_id", s.Match.ID)
+				gameState := &clientbound.GameState{
+					PlayerOnePos: math.Vector2f{
+						X: 0,
+						Y: 0,
+					},
+					PlayerTwoPos: math.Vector2f{
+						X: 0,
+						Y: 0,
+					},
+					BallPos: math.Vector2f{
+						X: 0,
+						Y: 0,
+					},
+				}
+				err := s.session.server.SendPacket(s.session.conn, gameState)
+				if err != nil {
+					s.session.Logger.Error("error sending game state packet", err)
+				}
+			}
+		}
+	}()
 	wg.Wait()
+
+	// TODO: Need a different state for this
+	//nss := &NegotiateSessionState{
+	//	session: s.session,
+	//}
+	//s.session.SetState(nss)
+	panic("nope")
 
 	return nil
 }

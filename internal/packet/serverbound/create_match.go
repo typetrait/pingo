@@ -10,7 +10,7 @@ type CreateMatch struct {
 }
 
 func (p *CreateMatch) ID() uint8 {
-	return p.id
+	return C2SCreateMatch
 }
 
 func (p *CreateMatch) Read(reader io.Reader) {
@@ -18,5 +18,5 @@ func (p *CreateMatch) Read(reader io.Reader) {
 }
 
 func (p *CreateMatch) Write(writer io.Writer) {
-	_ = binary.Write(writer, binary.LittleEndian, p.id)
+	_ = binary.Write(writer, binary.LittleEndian, p.ID())
 }

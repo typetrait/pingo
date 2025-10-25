@@ -89,11 +89,10 @@ func (s *PlayingSessionState) Handle(ctx context.Context) error {
 	wg.Wait()
 
 	// TODO: Need a different state for this
-	//nss := &NegotiateSessionState{
-	//	session: s.session,
-	//}
-	//s.session.SetState(nss)
-	panic("nope")
+	nss := &NegotiateSessionState{
+		session: s.session,
+	}
+	s.session.SetState(nss)
 
 	return nil
 }

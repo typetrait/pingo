@@ -119,7 +119,7 @@ func (s *Server) ReadPacket(conn net.Conn) (networking.Packet, error) {
 	packetID := readBuf[0]
 
 	switch packetID {
-	case serverbound.C2SHandshakePacket:
+	case serverbound.C2SHandshake:
 		pkt := serverbound.Handshake{}
 		pkt.Read(conn)
 		return &pkt, nil
@@ -129,6 +129,10 @@ func (s *Server) ReadPacket(conn net.Conn) (networking.Packet, error) {
 		return &pkt, nil
 	case serverbound.C2SJoinMatch:
 		pkt := serverbound.JoinMatch{}
+		pkt.Read(conn)
+		return &pkt, nil
+	case serverbound.C2SPaddleMove:
+		pkt := serverbound.PaddleMove{}
 		pkt.Read(conn)
 		return &pkt, nil
 	default:

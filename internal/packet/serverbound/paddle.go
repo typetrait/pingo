@@ -11,7 +11,7 @@ type PaddleMove struct {
 }
 
 func (p *PaddleMove) ID() uint8 {
-	return C2SPaddleMovePacket
+	return C2SPaddleMove
 }
 
 func (p *PaddleMove) Read(reader io.Reader) {

@@ -8,10 +8,12 @@ import (
 )
 
 type GameState struct {
-	id           uint8
-	PlayerOnePos math.Vector2f
-	PlayerTwoPos math.Vector2f
-	BallPos      math.Vector2f
+	id             uint8
+	PlayerOneScore uint64
+	PlayerTwoScore uint64
+	PlayerOnePos   math.Vector2f
+	PlayerTwoPos   math.Vector2f
+	BallPos        math.Vector2f
 }
 
 func (p *GameState) ID() uint8 {
@@ -19,6 +21,8 @@ func (p *GameState) ID() uint8 {
 }
 
 func (p *GameState) Read(reader io.Reader) {
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerOneScore)
+	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerTwoScore)
 	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerOnePos.X)
 	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerOnePos.Y)
 	_ = binary.Read(reader, binary.LittleEndian, &p.PlayerTwoPos.X)
@@ -29,6 +33,8 @@ func (p *GameState) Read(reader io.Reader) {
 
 func (p *GameState) Write(writer io.Writer) {
 	_ = binary.Write(writer, binary.LittleEndian, p.ID())
+	_ = binary.Write(writer, binary.LittleEndian, p.PlayerOneScore)
+	_ = binary.Write(writer, binary.LittleEndian, p.PlayerTwoScore)
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerOnePos.X)
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerOnePos.Y)
 	_ = binary.Write(writer, binary.LittleEndian, p.PlayerTwoPos.X)

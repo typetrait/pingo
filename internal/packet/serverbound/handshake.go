@@ -11,7 +11,7 @@ type Handshake struct {
 }
 
 func (p *Handshake) ID() uint8 {
-	return C2SHandshakePacket
+	return C2SHandshake
 }
 
 func (p *Handshake) Read(reader io.Reader) {

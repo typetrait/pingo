@@ -123,6 +123,19 @@ func main() {
 }
 
 func handlePlay(conn net.Conn) {
+	// Send Input
+	go func() {
+		for {
+			paddleMove := &serverbound.PaddleMove{
+				Y: 120,
+			}
+			err := sendPacket(conn, paddleMove)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}()
+
 	for {
 		p, err := readPacket(conn)
 		if err != nil {

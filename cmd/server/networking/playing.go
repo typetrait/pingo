@@ -66,6 +66,8 @@ func (s *PlayingSessionState) Handle(ctx context.Context) error {
 			case <-ticker.C:
 				s.session.Logger.Debug("game state", "match_id", s.Match.ID)
 				gameState := &clientbound.GameState{
+					PlayerOneScore: 0,
+					PlayerTwoScore: 0,
 					PlayerOnePos: math.Vector2f{
 						X: 0,
 						Y: 0,

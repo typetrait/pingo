@@ -3,10 +3,13 @@ package serverbound
 import (
 	"encoding/binary"
 	"io"
+
+	"github.com/typetrait/pingo/internal/encoding"
 )
 
 type CreateMatch struct {
-	id uint8
+	id         uint8
+	PlayerName string
 }
 
 func (p *CreateMatch) ID() uint8 {
@@ -14,9 +17,10 @@ func (p *CreateMatch) ID() uint8 {
 }
 
 func (p *CreateMatch) Read(reader io.Reader) {
-	// _ = binary.Read(reader, binary.LittleEndian, &p.id)
+	p.PlayerName, _ = encoding.ReadVarString(reader, binary.LittleEndian)
 }
 
 func (p *CreateMatch) Write(writer io.Writer) {
 	_ = binary.Write(writer, binary.LittleEndian, p.ID())
+	_ = encoding.WriteVarString(writer, binary.LittleEndian, p.PlayerName)
 }

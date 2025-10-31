@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/packet/clientbound"
 	"github.com/typetrait/pingo/internal/packet/serverbound"
 )
@@ -69,7 +68,9 @@ func (s *NegotiateSessionState) handleHandshake(p *serverbound.Handshake) error 
 		return fmt.Errorf("protocol version mismatch")
 	}
 
-	hs := &clientbound.Handshake{}
+	hs := &clientbound.Handshake{
+		SessionID: s.session.ID,
+	}
 	err := s.session.server.SendPacket(s.session.conn, hs)
 	if err != nil {
 		return fmt.Errorf("sending client bound handshake packet: %w", err)
@@ -79,7 +80,7 @@ func (s *NegotiateSessionState) handleHandshake(p *serverbound.Handshake) error 
 	return nil
 }
 
-func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*game.Match, error) {
+func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*Match, error) {
 	s.session.Logger.Debug("match creation request received")
 
 	s.session.Logger.Debug("creating match")
@@ -87,6 +88,13 @@ func (s *NegotiateSessionState) handleCreateMatch(p *serverbound.CreateMatch) (*
 	if err != nil {
 		return nil, fmt.Errorf("creating match: %w", err)
 	}
+
+	p1 := &Player{
+		ID:   s.session.ID,
+		Name: p.PlayerName,
+	}
+
+	match.SetPlayerOne(p1)
 
 	s.session.Logger.Info("match created", "id", match.ID)
 
@@ -106,16 +114,27 @@ func (s *NegotiateSessionState) handleJoinMatch(p *serverbound.JoinMatch) error 
 	s.session.Logger.Debug("match join request received", "player", p.PlayerName)
 	m, ok := s.session.server.matches[p.MatchID]
 	if !ok {
-		return fmt.Errorf("match not found")
+		return fmt.Errorf("match %q not found", p.MatchID)
 	}
 
-	m.SetPlayer(s.session.conn)
+	connectingPlayerSession := s.session.server.sessions[p.SessionID]
+
+	p2 := &Player{
+		ID:   connectingPlayerSession.ID,
+		Name: p.PlayerName,
+	}
+
+	m.SetPlayerTwo(p2)
+
+	// TODO: Should be impossible
+	if !m.Ready() {
+		return fmt.Errorf("invalid state: match %q not ready", p.MatchID)
+	}
 
 	pss := &PlayingSessionState{
 		session: s.session,
 		Match:   m,
 	}
-
 	s.session.SetState(pss)
 
 	return nil

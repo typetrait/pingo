@@ -31,9 +31,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	switch pkt.(type) {
-	case *clientbound.Handshake:
-		log.Println("handshake ack received")
+	handshakePacket, ok := pkt.(*clientbound.Handshake)
+	if !ok {
+		log.Fatal("unexpected packet")
+	}
+
+	sessionID := handshakePacket.SessionID
+	log.Println("handshake ack received")
+
+	var playerName string
+	fmt.Print("player name: ")
+	_, err = fmt.Scanf("%s", &playerName)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	for {
@@ -47,7 +57,9 @@ func main() {
 		switch opt {
 		case "host":
 			log.Println("requesting match creation")
-			createMatchPacket := &serverbound.CreateMatch{}
+			createMatchPacket := &serverbound.CreateMatch{
+				PlayerName: playerName,
+			}
 			err = sendPacket(conn, createMatchPacket)
 			if err != nil {
 				log.Fatal(err)
@@ -69,31 +81,26 @@ func main() {
 				log.Fatal(err)
 			}
 
-			_, ok = p.(*clientbound.Play)
+			playPkt, ok := p.(*clientbound.Play)
 			if !ok {
 				log.Fatal("unexpected packet")
 			}
 
-			handlePlay(conn)
+			handlePlay(playPkt, conn)
 			os.Exit(1)
 
 		case "join":
 			log.Println("requesting match join")
 
-			var matchID, playerName string
+			var matchID string
 			fmt.Print("match id: ")
 			_, err = fmt.Scanf("%s", &matchID)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			fmt.Print("player name: ")
-			_, err = fmt.Scanf("%s", &playerName)
-			if err != nil {
-				log.Fatal(err)
-			}
-
 			joinMatchPacket := &serverbound.JoinMatch{
+				SessionID:  sessionID,
 				MatchID:    matchID,
 				PlayerName: playerName,
 			}
@@ -107,12 +114,12 @@ func main() {
 				log.Fatal(err)
 			}
 
-			_, ok := p.(*clientbound.Play)
+			playPkt, ok := p.(*clientbound.Play)
 			if !ok {
 				log.Fatal("unexpected packet")
 			}
 
-			handlePlay(conn)
+			handlePlay(playPkt, conn)
 			os.Exit(1)
 
 		default:
@@ -122,7 +129,9 @@ func main() {
 	}
 }
 
-func handlePlay(conn net.Conn) {
+func handlePlay(p *clientbound.Play, conn net.Conn) {
+	fmt.Printf("playing against %q\n", p.AdversaryName)
+
 	// Send Input
 	go func() {
 		for {
@@ -148,8 +157,8 @@ func handlePlay(conn net.Conn) {
 		}
 
 		fmt.Printf("receiving game state\n")
-		fmt.Printf("p1 ypos = %f\n", gameState.PlayerOnePos.Y)
-		fmt.Printf("p2 ypos = %f\n", gameState.PlayerTwoPos.Y)
+		fmt.Printf("p1 ypos = %f\n", gameState.PlayerOnePosY)
+		fmt.Printf("p2 ypos = %f\n", gameState.PlayerTwoPosY)
 		fmt.Printf("ball xpos = %f\n", gameState.BallPos.X)
 		fmt.Printf("ball ypos = %f\n", gameState.BallPos.Y)
 	}

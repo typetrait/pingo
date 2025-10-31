@@ -11,11 +11,13 @@ type SessionState interface {
 }
 
 type ClientInfo struct {
+	playerName string
 }
 
 type Session struct {
+	ID     uint64
 	Logger *slog.Logger
-	
+
 	server     *Server
 	clientInfo *ClientInfo
 	conn       net.Conn

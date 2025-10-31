@@ -7,7 +7,7 @@ import (
 
 type PaddleMove struct {
 	id uint8
-	Y  float32
+	Y  float64
 }
 
 func (p *PaddleMove) ID() uint8 {
@@ -15,7 +15,6 @@ func (p *PaddleMove) ID() uint8 {
 }
 
 func (p *PaddleMove) Read(reader io.Reader) {
-	// _ = binary.Read(reader, binary.LittleEndian, &p.id)
 	_ = binary.Read(reader, binary.LittleEndian, &p.Y)
 }
 

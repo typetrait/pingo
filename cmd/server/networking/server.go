@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/typetrait/pingo/cmd/server/game"
 	"github.com/typetrait/pingo/internal/networking"
 	"github.com/typetrait/pingo/internal/packet/serverbound"
 )
@@ -31,14 +30,14 @@ type Server struct {
 	sessions []*Session
 
 	mu2     sync.Mutex
-	matches map[string]*game.Match
+	matches map[string]*Match
 }
 
 func NewServer() *Server {
 	return &Server{
 		running:  false,
 		sessions: make([]*Session, 0),
-		matches:  make(map[string]*game.Match),
+		matches:  make(map[string]*Match),
 	}
 }
 
@@ -80,12 +79,13 @@ func (s *Server) HandleConnection(conn net.Conn) {
 		}
 	}(conn)
 
-	session := NewSession(s, &ClientInfo{}, conn)
-	sessionID := s.addSession(session)
+	ci := &ClientInfo{}
+	session := NewSession(s, ci, conn)
+	session.ID = s.addSession(session)
 
 	session.Logger = slog.
 		Default().
-		WithGroup(fmt.Sprintf("session_%s", strconv.Itoa(sessionID)))
+		WithGroup(fmt.Sprintf("session_%s", strconv.Itoa(int(session.ID))))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -140,20 +140,20 @@ func (s *Server) ReadPacket(conn net.Conn) (networking.Packet, error) {
 	}
 }
 
-func (s *Server) addSession(session *Session) int {
+func (s *Server) addSession(session *Session) uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.sessions = append(s.sessions, session)
-	return len(s.sessions) - 1
+	return uint64(len(s.sessions) - 1)
 }
 
-func (s *Server) createMatch(session *Session) (*game.Match, error) {
+func (s *Server) createMatch(session *Session) (*Match, error) {
 	id, err := s.generateMatchID()
 	if err != nil {
 		return nil, fmt.Errorf("generating match ID: %w", err)
 	}
 
-	match := game.NewMatch(id, session.conn)
+	match := NewMatch(id, session.conn)
 
 	s.mu2.Lock()
 	defer s.mu2.Unlock()

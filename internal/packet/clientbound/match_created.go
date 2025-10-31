@@ -17,7 +17,6 @@ func (p *MatchCreated) ID() uint8 {
 }
 
 func (p *MatchCreated) Read(reader io.Reader) {
-	// _ = binary.Read(reader, binary.LittleEndian, &p.id)
 	p.MatchID, _ = encoding.ReadVarString(reader, binary.LittleEndian)
 }
 

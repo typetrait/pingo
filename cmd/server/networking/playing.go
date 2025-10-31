@@ -2,12 +2,12 @@ package networking
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
-	"github.com/typetrait/pingo/cmd/server/game"
-	"github.com/typetrait/pingo/internal/math"
 	"github.com/typetrait/pingo/internal/packet/clientbound"
 	"github.com/typetrait/pingo/internal/packet/serverbound"
 )
@@ -22,11 +22,13 @@ const (
 
 type PlayingSessionState struct {
 	session *Session
-	Match   *game.Match
+	Match   *Match
 }
 
 func (s *PlayingSessionState) Handle(ctx context.Context) error {
-	play := &clientbound.Play{}
+	play := &clientbound.Play{
+		AdversaryName: s.Match.AdversaryPlayer(s.session).Name,
+	}
 	err := s.session.server.SendPacket(s.session.conn, play)
 	if err != nil {
 		return fmt.Errorf("sending play packet: %w", err)
@@ -38,63 +40,61 @@ func (s *PlayingSessionState) Handle(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// Input from this session's connection
+	s.Match.Start(ctx)
+
+	// Input
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
-				wg.Done()
+				return
 			default:
 				p, err := s.session.server.ReadPacket(s.session.conn)
 				if err != nil {
+					s.session.Logger.Error("failed to read packet", err)
+					if errors.Is(err, io.EOF) {
+						// TODO: Cancel
+						return
+					}
+					continue
 				}
 
 				switch pkt := p.(type) {
 				case *serverbound.PaddleMove:
 					s.session.Logger.Debug("paddle move", "match_id", s.Match.ID, "y_pos", pkt.Y)
+					s.Match.Game.QueueInput(&MoveInput{
+						PlayerID: s.session.ID,
+						PosY:     pkt.Y,
+					})
 				}
 			}
 		}
 	}()
 
-	// TODO: Move this
+	// Output
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				wg.Done()
-			case <-ticker.C:
-				s.session.Logger.Debug("game state", "match_id", s.Match.ID)
+				return
+			case snap := <-s.Match.Game.Snapshots():
 				gameState := &clientbound.GameState{
-					PlayerOneScore: 0,
-					PlayerTwoScore: 0,
-					PlayerOnePos: math.Vector2f{
-						X: 0,
-						Y: 0,
-					},
-					PlayerTwoPos: math.Vector2f{
-						X: 0,
-						Y: 0,
-					},
-					BallPos: math.Vector2f{
-						X: 0,
-						Y: 0,
-					},
+					PlayerOneScore: snap.P1Score,
+					PlayerTwoScore: snap.P2Score,
+					PlayerOnePosY:  snap.P1Y,
+					PlayerTwoPosY:  snap.P2Y,
+					BallPos:        snap.BallPos,
 				}
-				err := s.session.server.SendPacket(s.session.conn, gameState)
-				if err != nil {
-					s.session.Logger.Error("error sending game state packet", err)
+				if err := s.session.server.SendPacket(s.session.conn, gameState); err != nil {
+					s.session.Logger.Error("failed to send game state", err)
+					// TODO: Cancel
+					return
 				}
 			}
 		}
 	}()
 	wg.Wait()
-
-	// TODO: Need a different state for this
-	nss := &NegotiateSessionState{
-		session: s.session,
-	}
-	s.session.SetState(nss)
 
 	return nil
 }
